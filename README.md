@@ -51,7 +51,7 @@ Every value marked `CHANGE_ME` **must** be changed before starting:
 | `SERVICE_TOKEN` | Another random string, same command — **use a different value than `JWT_SECRET_KEY`**, don't reuse it. |
 | `APP_PUBLIC_URL` | The address people will use to reach Micro BI — e.g. `http://203.0.113.10:8080` or `https://bi.yourcompany.com` if you're putting it behind a reverse proxy with TLS. Used in share links and email notifications. |
 | `CORS_ORIGINS` | Same value as `APP_PUBLIC_URL`, as a comma-separated list if you have more than one (e.g. an IP and a domain). |
-| `ACTIVATION_SERVER_URL` | Leave as `https://activation.microbi.app/api/v1` — this is our license server, not something you host yourself. |
+| `ACTIVATION_SERVER_URL` | Leave as `https://activation.microbi.app` — this is our license server, not something you host yourself. |
 | `HTTP_PORT` | The port you'll access Micro BI on. Default `8080` is fine unless it's already in use on your server. |
 | `MICROBI_TAG` | Leave as `beta` to always get the latest beta release, or pin a specific version (e.g. `1.0.0-beta.4`) if you want manual control over updates. |
 
