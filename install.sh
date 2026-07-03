@@ -24,22 +24,31 @@ if ! command -v openssl >/dev/null 2>&1; then
   exit 1
 fi
 
+# When run via `curl | bash`, stdin is the script itself being streamed in —
+# so any `read` here must come from the controlling terminal explicitly,
+# not from stdin, or it silently consumes the script's own remaining bytes.
+if [ ! -r /dev/tty ]; then
+  echo "Error: no interactive terminal available (/dev/tty not readable)."
+  echo "Run this script directly instead of through a non-interactive pipe:"
+  echo "  curl -fsSL https://microbi.app/install.sh -o install.sh && bash install.sh"
+  exit 1
+fi
+
 # --- ask the one thing we can't guess ---
 echo "What address will you use to reach Micro BI?"
 echo "Examples: http://203.0.113.10:8080  or  https://bi.yourcompany.com"
-read -rp "Public URL: " APP_URL
+read -rp "Public URL: " APP_URL < /dev/tty
 APP_URL="${APP_URL%/}"
 
 echo
-echo "Which local port should Micro BI listen on? [8080]: "
-read -rp "> " HTTP_PORT
+read -rp "Which local port should Micro BI listen on? [8080]: " HTTP_PORT < /dev/tty
 HTTP_PORT="${HTTP_PORT:-8080}"
 
 # --- set up working directory ---
 if [ -d "$INSTALL_DIR" ]; then
   echo
   echo "Directory './${INSTALL_DIR}' already exists."
-  read -rp "Continue and overwrite its config files? [y/N]: " CONFIRM
+  read -rp "Continue and overwrite its config files? [y/N]: " CONFIRM < /dev/tty
   if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
     echo "Aborted."
     exit 1
