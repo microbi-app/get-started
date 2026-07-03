@@ -3,7 +3,7 @@
 # Usage: curl -fsSL https://microbi.app/install.sh | bash
 set -euo pipefail
 
-BASE_URL="https://microbi.app/downloads"
+BASE_URL="https://raw.githubusercontent.com/microbi-app/get-started/main"
 INSTALL_DIR="micro-bi"
 
 echo "Micro BI — Installer"
