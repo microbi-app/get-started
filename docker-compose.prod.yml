@@ -1,0 +1,142 @@
+# docker-compose.prod.yml
+# Production compose for beta users — pulls pre-built images from GHCR.
+# Uruchomienie: docker compose -f docker-compose.prod.yml up -d
+# Aktualizacja:  docker compose -f docker-compose.prod.yml pull && \
+#                docker compose -f docker-compose.prod.yml up -d
+
+name: micro-bi   # forces the project name -> SFTP container = micro-bi-sftp-1
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # No external port mapping — Postgres only on the docker network.
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ghcr.io/microbi-app/micro-bi-backend:${MICROBI_TAG:-beta}
+    restart: unless-stopped
+    user: root
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: ${JWT_REFRESH_TOKEN_EXPIRE_DAYS}
+      DUCKDB_PATH: ${DUCKDB_PATH}
+      APP_NAME: ${APP_NAME}
+      APP_ENV: ${APP_ENV}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      ACTIVATION_SERVER_URL: ${ACTIVATION_SERVER_URL}
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-internal-service-token}
+      SFTP_CONTAINER_NAME: micro-bi-sftp-1
+      PDF_SERVICE_URL: http://pdf-service:3001
+      # CHANGE vs dev: frontend is now nginx on :80, not Vite on :5173
+      FRONTEND_URL: http://frontend
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL}
+    volumes:
+      - duckdb_data:/data
+      - uploads:/data/uploads
+      - etl_inbox:/data/etl_inbox
+      - sftp_config:/data/sftp_config
+      - /var/run/docker.sock:/var/run/docker.sock
+      - logs:/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  sftp:
+    image: ghcr.io/microbi-app/micro-bi-sftp:${MICROBI_TAG:-beta}
+    container_name: micro-bi-sftp-1   # backend restarts it by name
+    restart: unless-stopped
+    ports:
+      - "2222:22"
+    volumes:
+      - etl_inbox:/data/etl_inbox
+      - sftp_config:/data/sftp_config
+
+  celery-beat:
+    image: ghcr.io/microbi-app/micro-bi-backend:${MICROBI_TAG:-beta}
+    restart: unless-stopped
+    command: celery -A app.main.celery_app beat --loglevel=info
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-internal-service-token}
+      ACTIVATION_SERVER_URL: ${ACTIVATION_SERVER_URL}
+      APP_ENV: ${APP_ENV}
+      LOG_LEVEL: ${LOG_LEVEL}
+    volumes:
+      - logs:/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  celery-worker:
+    image: ghcr.io/microbi-app/micro-bi-backend:${MICROBI_TAG:-beta}
+    restart: unless-stopped
+    command: celery -A app.main.celery_app worker --loglevel=info
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-internal-service-token}
+      ACTIVATION_SERVER_URL: ${ACTIVATION_SERVER_URL}
+      APP_ENV: ${APP_ENV}
+      LOG_LEVEL: ${LOG_LEVEL}
+      FRONTEND_URL: http://frontend          # <- ADDED: links in scheduled report emails
+      PDF_RENDER_URL: http://frontend
+    volumes:
+      - uploads:/data/uploads
+      - etl_inbox:/data/etl_inbox
+      - logs:/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  pdf-service:
+    image: ghcr.io/microbi-app/micro-bi-pdf-service:${MICROBI_TAG:-beta}
+    container_name: micro-bi-pdf-service
+    restart: unless-stopped
+    environment:
+      - PORT=3001
+
+  frontend:
+    image: ghcr.io/microbi-app/micro-bi-frontend:${MICROBI_TAG:-beta}
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"   # user exposes UI here; defaults to :8080
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  duckdb_data:
+  uploads:
+  logs:
+  etl_inbox:
+  sftp_config:
