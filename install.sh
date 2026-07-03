@@ -34,15 +34,29 @@ if [ ! -r /dev/tty ]; then
   exit 1
 fi
 
-# --- ask the one thing we can't guess ---
-echo "What address will you use to reach Micro BI?"
-echo "Examples: http://203.0.113.10:8080  or  https://bi.yourcompany.com"
-read -rp "Public URL: " APP_URL < /dev/tty
-APP_URL="${APP_URL%/}"
+# --- detect the server's address so we only have to ask what we can't guess ---
+DETECTED_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
+if [ -z "$DETECTED_IP" ]; then
+  DETECTED_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+fi
 
 echo
-read -rp "Which local port should Micro BI listen on? [8080]: " HTTP_PORT < /dev/tty
+read -rp "Local port to expose Micro BI on [8080]: " HTTP_PORT < /dev/tty
 HTTP_PORT="${HTTP_PORT:-8080}"
+
+DEFAULT_URL="http://${DETECTED_IP:-CHANGE_ME}:${HTTP_PORT}"
+echo
+echo "Detected address: ${DEFAULT_URL}"
+echo "If this server has a domain name or sits behind a reverse proxy,"
+echo "enter that instead — otherwise just press Enter to accept it."
+read -rp "Public URL [${DEFAULT_URL}]: " APP_URL_INPUT < /dev/tty
+APP_URL="${APP_URL_INPUT:-$DEFAULT_URL}"
+APP_URL="${APP_URL%/}"
+
+if [ -z "$DETECTED_IP" ] && [ "$APP_URL" = "${DEFAULT_URL%/}" ]; then
+  echo "Error: could not auto-detect this server's address, and none was provided."
+  exit 1
+fi
 
 # --- set up working directory ---
 if [ -d "$INSTALL_DIR" ]; then
@@ -107,6 +121,11 @@ echo
 echo " Your generated secrets are saved in: $(pwd)/.env"
 echo " Keep this file safe — it's needed to reconnect to your database"
 echo " if you ever move or rebuild this server."
+echo
+echo " Note: if this address is a private/LAN IP (e.g. 192.168.x.x) and you"
+echo " plan to access Micro BI from outside this network, make sure the IP"
+echo " is static (reserved in your router/DHCP) or use a domain name instead"
+echo " — otherwise this address may change after a reboot."
 echo
 echo " To check status:  docker compose -f docker-compose.prod.yml ps"
 echo " To view logs:      docker compose -f docker-compose.prod.yml logs -f backend"
