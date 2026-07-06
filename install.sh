@@ -70,6 +70,8 @@ if [ -d "$INSTALL_DIR" ]; then
 fi
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
+INSTALL_PATH="$(pwd)"
+
 
 echo
 echo "Downloading configuration..."
@@ -118,7 +120,7 @@ echo
 echo " You'll land on a setup wizard to create your admin account,"
 echo " then go to Settings → License to activate your beta key."
 echo
-echo " Your generated secrets are saved in: $(pwd)/.env"
+echo " Your generated secrets are saved in: ${INSTALL_PATH}/.env"
 echo " Keep this file safe — it's needed to reconnect to your database"
 echo " if you ever move or rebuild this server."
 echo
@@ -127,7 +129,19 @@ echo " plan to access Micro BI from outside this network, make sure the IP"
 echo " is static (reserved in your router/DHCP) or use a domain name instead"
 echo " — otherwise this address may change after a reboot."
 echo
-echo " To check status:  docker compose -f docker-compose.prod.yml ps"
-echo " To view logs:      docker compose -f docker-compose.prod.yml logs -f backend"
-echo " To update later:   docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d"
+echo " -------------------------------------------"
+echo " Useful commands — run these from ${INSTALL_PATH}:"
+echo
+echo "   docker compose -f docker-compose.prod.yml ps"
+echo "     Check status"
+echo
+echo "   docker compose -f docker-compose.prod.yml logs -f backend"
+echo "     View logs"
+echo
+echo "   docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d"
+echo "     Update to the latest version"
+echo
+echo " If you ever edit .env by hand (e.g. changing the public address),"
+echo " apply it with 'up -d' — NOT 'restart'. Plain 'restart' reuses the"
+echo " container's old environment and ignores your .env changes."
 echo "============================================="

@@ -88,7 +88,9 @@ If your license approaches its expiry date, you'll see a countdown on the Licens
 
 ## Updating to a new version
 
-When we release a new beta version, updating is two commands, run from the folder containing your `docker-compose.prod.yml`:
+Before running these commands, make sure you're in the directory the installer created (default `~/micro-bi`) — that's where `docker-compose.prod.yml` and your `.env` live. Not sure where that is? Run: `find ~ -maxdepth 3 -name docker-compose.prod.yml`
+
+When we release a new beta version, updating is two commands, run from that folder:
 
 ```bash
 docker compose -f docker-compose.prod.yml pull
@@ -98,6 +100,8 @@ docker compose -f docker-compose.prod.yml up -d
 Your data (database, uploaded files, DuckDB warehouse) lives in Docker volumes and is untouched by this process — only the application containers are replaced. Database migrations, if any, run automatically on startup, same as the first install.
 
 **Never run `docker compose down -v`** — the `-v` flag deletes all volumes, which means all your data. A plain `down` (without `-v`) is always safe; it only stops containers.
+
+**If you ever edit `.env` by hand** (e.g. changing `APP_PUBLIC_URL` after moving the server), apply the change with `docker compose -f docker-compose.prod.yml up -d` — **not** `restart`. Plain `restart` reuses the container's existing environment and silently ignores your `.env` changes; only `up -d` re-reads the file and recreates the affected containers.
 
 ## Backups
 
